@@ -1,0 +1,21 @@
+{
+  "name": "videotube",
+  "version": "1.0.0",
+  "description": "This is Videotube backend i MERN",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [
+    "mern",
+    "backend",
+    "videotube"
+  ],
+  "author": "Shubham Bankar",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.3"
+  }
+}
