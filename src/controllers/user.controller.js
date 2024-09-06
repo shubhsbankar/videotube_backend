@@ -19,33 +19,40 @@ const registerUser = asyncHandler(async (req,res)=> {
      throw new ApiError(400, "All fields are required");
    }
    
-   const existedUser = User.findOne(
+   const existedUser = await User.findOne(
     {
         $or: [{ email }, { username }]
     }
    );
 
    if (existedUser){
-    throw ApiError(409, "user is already exist with email or username");
+    throw new ApiError(409, "user is already exist with email or username");
    }
-
-   const avatarLocalPath = req.files?.avatar[0]?.path;
-   const coverImageLocalPath = req.files?.coverImage[0].path
-
+   console.log(req.files)
+   let avatarLocalPath;
+   let coverImageLocalPath;
+   if (req.files && Array.isArray(req.files.avatar) && req.files.avatar.length > 0){
+    avatarLocalPath = req.files.avatar[0].path;
+   }
+   if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
+    coverImageLocalPath = req.files.coverImage[0].path;
+   }
+   
    if (!avatarLocalPath){
-    throw ApiError(400,"Avatar image is required");
+    throw new ApiError(400,"Avatar image is required");
    }
    const avatar = await uploadOnClodinary(avatarLocalPath);
    const coverImage = await uploadOnClodinary(coverImageLocalPath);
    if (!avatar){
-    throw ApiError(500,"Avatar image is upload failed");
+    throw new ApiError(500,"Avatar image upload is failed");
    }
    const user = await User.create({
     fullName,
     avatar: avatar.url,
     coverImage: coverImage?.url || "",
     email,
-    username: username.toLowercase()
+    username: username.toLowerCase(),
+    password
 
    });
 
