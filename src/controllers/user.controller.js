@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 const registerUser = asyncHandler(async (req,res)=> {
 
    // take request 
@@ -145,8 +146,8 @@ const logOutUser = asyncHandler( async (req, res) => {
 
     await User.findByIdAndUpdate(req.user._id,
         {
-            $set: {
-                refreshToken : undefined
+            $unset: {
+                refreshToken : 1
             }
         },
         {
@@ -360,6 +361,131 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
     );
 });
 
+const getUserChannelProfille = asyncHandler(async (req,res) => {
+
+    const {username} = req.params;
+
+    if (!username?.trim()){
+        throw new ApiError(400,"Missing username");
+    }
+
+    const channel = await User.aggregate([
+        {
+            $match:{
+                username: username?.toLowerCase()
+            }
+        },
+        {
+            $lookup:{
+                from: "subscriptions",
+                foreignField: "channel",
+                localField: "_id",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup:{
+                from: "subscriptions",
+                foreignField: "subscriber",
+                localField: "_id",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields:{
+                subscriberCount: {
+                    $size: "$subscribers"
+                },
+                subscribedToCount:{
+                    $size: "$subscribedTo"
+                },
+                isSuscribed:{
+                    $cond:{
+                        if:{ $in: [req.user?._id,"$subscribers.subscriber"]},
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                username: 1,
+                fullName: 1,
+                subscriberCount: 1,
+                subscribedToCount: 1,
+                isSuscribed: 1,
+                avatar: 1,
+                coverImage: 1
+            }
+        }
+
+    ]);
+
+    if (!channel?.length){
+        throw new ApiError(404,"Channel does not exist");
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,channel[0],"user channel fetched successfully")
+    );
+
+});
+
+const getUserWatchHistory = asyncHandler( async (req, res) => {
+
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(req.user?._id)
+            }
+        },
+        {
+            $lookup:{
+                from: "videos",
+                foreignField: "_id",
+                localField: "watchHistory",
+                as: "history",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            foreignField: "_id",
+                            localField: "owner",
+                            as: "owner",
+                            pipeline:[
+                                {
+                                    $project:{
+                                        fullName:1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]);
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,user[0].watchHistory,"Watch history fectched successfully")
+    );
+
+})
+
 export {
     registerUser,
     logInUser,
@@ -369,5 +495,7 @@ export {
     getCurrentUser,
     updateAccountDetails ,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfille,
+    getUserWatchHistory
 };
